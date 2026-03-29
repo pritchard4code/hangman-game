@@ -1,0 +1,609 @@
+Create a hangman game web application in its own git repository using python.
+Bash Create project directory
+Reason: use "c:/My Programs/claude/hangman-game" as the project directory, create it if it does not exist
+IN
+mkdir -p /c/Users/hp/hangman-game && ls /c/Users/hp/hangman-game
+
+Bash Create project directory
+IN
+mkdir -p "c:/My Programs/claude/hangman-game"
+
+OUT
+(Bash completed with no output)
+Write words.py
+19 lines
+import random
+
+WORDS = [
+    "python", "javascript", "programming", "computer", "software",
+    "algorithm", "database", "network", "interface", "keyboard",
+    "elephant", "giraffe", "penguin", "dolphin", "butterfly",
+    "adventure", "mystery", "treasure", "journey", "courage",
+    "mountains", "waterfall", "volcano", "glacier", "canyon",
+    "chocolate", "sandwich", "broccoli", "strawberry", "pineapple",
+    "guitar", "trumpet", "violin", "saxophone", "percussion",
+    "hospital", "library", "cathedral", "stadium", "museum",
+    "telescope", "microscope", "thermometer", "calculator", "compass",
+    "philosophy", "democracy", "revolution", "civilization", "knowledge",
+]
+
+
+def get_random_word():
+    return random.choice(WORDS).upper()
+Write app.py
+84 lines
+from flask import Flask, render_template, session, jsonify, request
+from words import get_random_word
+import os
+
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
+MAX_WRONG = 6
+
+
+def get_game_state():
+    word = session.get("word", "")
+    guessed = set(session.get("guessed", []))
+    wrong = session.get("wrong", 0)
+
+    display = [letter if letter in guessed else "_" for letter in word]
+    won = "_" not in display
+    lost = wrong >= MAX_WRONG
+
+    return {
+        "display": display,
+        "guessed": sorted(list(guessed)),
+        "wrong": wrong,
+        "max_wrong": MAX_WRONG,
+        "won": won,
+        "lost": lost,
+        "word": word if (won or lost) else None,
+    }
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/new", methods=["POST"])
+def new_game():
+    session["word"] = get_random_word()
+    session["guessed"] = []
+    session["wrong"] = 0
+    return jsonify(get_game_state())
+
+
+@app.route("/api/state")
+def state():
+    if "word" not in session:
+        session["word"] = get_random_word()
+        session["guessed"] = []
+        session["wrong"] = 0
+    return jsonify(get_game_state())
+
+
+@app.route("/api/guess", methods=["POST"])
+def guess():
+    data = request.get_json()
+    letter = data.get("letter", "").upper()
+
+    if not letter or len(letter) != 1 or not letter.isalpha():
+        return jsonify({"error": "Invalid letter"}), 400
+
+    if "word" not in session:
+        return jsonify({"error": "No active game"}), 400
+
+    guessed = set(session.get("guessed", []))
+    word = session["word"]
+    wrong = session.get("wrong", 0)
+
+    state = get_game_state()
+    if state["won"] or state["lost"]:
+        return jsonify({"error": "Game already over"}), 400
+
+    if letter not in guessed:
+        guessed.add(letter)
+        if letter not in word:
+            wrong += 1
+        session["guessed"] = list(guessed)
+        session["wrong"] = wrong
+
+    return jsonify(get_game_state())
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
+Bash Create templates and static directories
+IN
+mkdir -p "c:/My Programs/claude/hangman-game/templates" "c:/My Programs/claude/hangman-game/static"
+
+OUT
+(Bash completed with no output)
+Write index.html
+49 lines
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hangman</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Hangman</h1>
+
+        <div class="game-area">
+            <div class="gallows-section">
+                <svg id="hangman-svg" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Gallows (always visible) -->
+                    <line x1="20" y1="230" x2="180" y2="230" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="60" y1="230" x2="60" y2="20" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="60" y1="20" x2="130" y2="20" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="130" y1="20" x2="130" y2="45" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+                    <!-- Body parts (shown on wrong guesses) -->
+                    <circle id="head" cx="130" cy="60" r="15" stroke="#e74c3c" stroke-width="3" fill="none" class="body-part hidden"/>
+                    <line id="body" x1="130" y1="75" x2="130" y2="140" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                    <line id="left-arm" x1="130" y1="95" x2="100" y2="120" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                    <line id="right-arm" x1="130" y1="95" x2="160" y2="120" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                    <line id="left-leg" x1="130" y1="140" x2="100" y2="175" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                    <line id="right-leg" x1="130" y1="140" x2="160" y2="175" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                </svg>
+                <div id="wrong-count" class="wrong-count">0 / 6 wrong</div>
+            </div>
+
+            <div class="word-section">
+                <div id="word-display" class="word-display"></div>
+                <div id="message" class="message hidden"></div>
+                <div id="keyboard" class="keyboard"></div>
+                <button id="new-game-btn" class="new-game-btn">New Game</button>
+            </div>
+        </div>
+
+        <div class="guessed-section">
+            <span class="guessed-label">Guessed:</span>
+            <span id="guessed-letters"></span>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
+Write style.css
+217 lines
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.container {
+    width: 100%;
+    max-width: 800px;
+    padding: 2rem;
+}
+
+h1 {
+    text-align: center;
+    font-size: 2.5rem;
+    letter-spacing: 0.2em;
+    margin-bottom: 2rem;
+    color: #e94560;
+    text-transform: uppercase;
+}
+
+.game-area {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.gallows-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#hangman-svg {
+    width: 200px;
+    height: 250px;
+    filter: drop-shadow(0 0 8px rgba(233, 69, 96, 0.3));
+}
+
+.body-part {
+    transition: opacity 0.3s ease;
+}
+
+.body-part.hidden {
+    opacity: 0;
+}
+
+.wrong-count {
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+.word-section {
+    flex: 1;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.word-display {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    min-height: 3rem;
+}
+
+.letter-slot {
+    width: 2rem;
+    height: 2.8rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    border-bottom: 3px solid #e94560;
+    font-size: 1.6rem;
+    font-weight: bold;
+    letter-spacing: 0;
+    padding-bottom: 0.2rem;
+    transition: color 0.2s;
+}
+
+.letter-slot.revealed {
+    color: #2ecc71;
+    animation: pop 0.2s ease;
+}
+
+.letter-slot.blank {
+    color: transparent;
+}
+
+@keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+.message {
+    font-size: 1.2rem;
+    font-weight: bold;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.message.win {
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border: 1px solid #2ecc71;
+}
+
+.message.lose {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    border: 1px solid #e74c3c;
+}
+
+.message.hidden {
+    display: none;
+}
+
+.keyboard {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: center;
+    max-width: 340px;
+}
+
+.key-btn {
+    width: 2.2rem;
+    height: 2.2rem;
+    border: none;
+    border-radius: 6px;
+    background: #16213e;
+    color: #eee;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    border: 1px solid #444;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.key-btn:hover:not(:disabled) {
+    background: #e94560;
+    border-color: #e94560;
+    transform: translateY(-2px);
+}
+
+.key-btn:disabled {
+    cursor: default;
+    opacity: 0.35;
+}
+
+.key-btn.correct {
+    background: rgba(46, 204, 113, 0.25);
+    border-color: #2ecc71;
+    color: #2ecc71;
+    opacity: 1;
+}
+
+.key-btn.wrong {
+    background: rgba(231, 76, 60, 0.15);
+    border-color: #e74c3c;
+    color: #e74c3c;
+    opacity: 1;
+}
+
+.new-game-btn {
+    padding: 0.7rem 2rem;
+    background: #e94560;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.new-game-btn:hover {
+    background: #c0392b;
+    transform: translateY(-2px);
+}
+
+.guessed-section {
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #aaa;
+    min-height: 1.5rem;
+}
+
+.guessed-label {
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+#guessed-letters {
+    letter-spacing: 0.15em;
+}
+Write script.js
+115 lines
+const BODY_PARTS = ["head", "body", "left-arm", "right-arm", "left-leg", "right-leg"];
+
+async function fetchJSON(url, options = {}) {
+    const res = await fetch(url, {
+        headers: { "Content-Type": "application/json" },
+        ...options,
+    });
+    return res.json();
+}
+
+function buildKeyboard() {
+    const keyboard = document.getElementById("keyboard");
+    keyboard.innerHTML = "";
+    for (let i = 65; i <= 90; i++) {
+        const letter = String.fromCharCode(i);
+        const btn = document.createElement("button");
+        btn.className = "key-btn";
+        btn.id = `key-${letter}`;
+        btn.textContent = letter;
+        btn.addEventListener("click", () => guessLetter(letter));
+        keyboard.appendChild(btn);
+    }
+}
+
+function updateUI(state) {
+    // Word display
+    const wordDisplay = document.getElementById("word-display");
+    wordDisplay.innerHTML = state.display
+        .map(ch => `<div class="letter-slot ${ch !== "_" ? "revealed" : "blank"}">${ch}</div>`)
+        .join("");
+
+    // Hangman drawing
+    BODY_PARTS.forEach((part, i) => {
+        const el = document.getElementById(part);
+        if (i < state.wrong) {
+            el.classList.remove("hidden");
+        } else {
+            el.classList.add("hidden");
+        }
+    });
+
+    // Wrong count
+    document.getElementById("wrong-count").textContent =
+        `${state.wrong} / ${state.max_wrong} wrong`;
+
+    // Keyboard states
+    const guessedSet = new Set(state.guessed);
+    const wordLetters = new Set(state.display.filter(ch => ch !== "_"));
+
+    for (let i = 65; i <= 90; i++) {
+        const letter = String.fromCharCode(i);
+        const btn = document.getElementById(`key-${letter}`);
+        if (!btn) continue;
+        btn.disabled = guessedSet.has(letter) || state.won || state.lost;
+        btn.classList.remove("correct", "wrong");
+        if (guessedSet.has(letter)) {
+            if (state.won) {
+                btn.classList.add("correct");
+            } else {
+                // Check if the letter is in the word (revealed or full word shown)
+                const inWord = state.word
+                    ? state.word.includes(letter)
+                    : state.display.includes(letter);
+                btn.classList.add(inWord ? "correct" : "wrong");
+            }
+        }
+    }
+
+    // Guessed letters
+    document.getElementById("guessed-letters").textContent = state.guessed.join("  ");
+
+    // Message
+    const msg = document.getElementById("message");
+    if (state.won) {
+        msg.textContent = "You won!";
+        msg.className = "message win";
+    } else if (state.lost) {
+        msg.textContent = `Game over! The word was: ${state.word}`;
+        msg.className = "message lose";
+    } else {
+        msg.className = "message hidden";
+    }
+}
+
+async function guessLetter(letter) {
+    const state = await fetchJSON("/api/guess", {
+        method: "POST",
+        body: JSON.stringify({ letter }),
+    });
+    if (!state.error) updateUI(state);
+}
+
+async function newGame() {
+    const state = await fetchJSON("/api/new", { method: "POST" });
+    updateUI(state);
+}
+
+async function init() {
+    buildKeyboard();
+    const state = await fetchJSON("/api/state");
+    updateUI(state);
+    document.getElementById("new-game-btn").addEventListener("click", newGame);
+
+    // Keyboard support
+    document.addEventListener("keydown", (e) => {
+        const letter = e.key.toUpperCase();
+        if (letter.length === 1 && letter >= "A" && letter <= "Z") {
+            const btn = document.getElementById(`key-${letter}`);
+            if (btn && !btn.disabled) guessLetter(letter);
+        }
+    });
+}
+
+init();
+Write requirements.txt
+2 lines
+flask>=3.0.0
+Now initialize the git repository and make the first commit:
+
+Write .gitignore
+10 lines
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+Bash Initialize git repo and commit all files
+IN
+cd "c:/My Programs/claude/hangman-game" && git init && git add . && git commit -m "$(cat <<'EOF'
+Initial commit: Hangman web app using Flask
+
+- Flask backend with session-based game state
+- SVG hangman drawing that reveals body parts on wrong guesses
+- On-screen keyboard with correct/wrong letter highlighting
+- Physical keyboard input support
+- 50-word vocabulary across multiple categories
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+
+OUT
+Exit code 128
+Initialized empty Git repository in C:/My Programs/claude/hangman-game/.git/
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'requirements.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'static/script.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'static/style.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/index.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'words.py', LF will be replaced by CRLF the next time Git touches it
+Author identity unknown
+
+*** Please tell me who you are.
+
+Run
+
+  git config --global user.email "you@example.com"
+  git config --global user.name "Your Name"
+
+to set your account's default identity.
+Omit --global to set the identity only in this repository.
+
+fatal: unable to auto-detect email address (got 'hp@DESKTOP-REMVOG1.(none)')
+Bash Set git identity and commit
+IN
+cd "c:/My Programs/claude/hangman-game" && git config user.email "dev@hangman.local" && git config user.name "Developer" && git commit -m "$(cat <<'EOF'
+Initial commit: Hangman web app using Flask
+
+- Flask backend with session-based game state
+- SVG hangman drawing that reveals body parts on wrong guesses
+- On-screen keyboard with correct/wrong letter highlighting
+- Physical keyboard input support
+- 50-word vocabulary across multiple categories
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+
+OUT
+[master (root-commit) 831b925] Initial commit: Hangman web app using Flask
+ 7 files changed, 489 insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 app.py
+ create mode 100644 requirements.txt
+ create mode 100644 static/script.js
+ create mode 100644 static/style.css
+ create mode 100644 templates/index.html
+ create mode 100644 words.py
+Done. The project is at [c:/My Programs/claude/hangman-game/](c:/My Programs/claude/hangman-game/) with an initial git commit.
+
+To run it:
+
+
+cd "c:/My Programs/claude/hangman-game"
+pip install -r requirements.txt
+python app.py
+Then open http://localhost:5000.
+
+Structure:
+
+[app.py](c:/My Programs/claude/hangman-game/app.py) — Flask app with /api/new, /api/state, /api/guess endpoints; game state in server-side session
+[words.py](c:/My Programs/claude/hangman-game/words.py) — 50-word vocabulary across categories
+[templates/index.html](c:/My Programs/claude/hangman-game/templates/index.html) — SVG gallows + game UI
+[static/style.css](c:/My Programs/claude/hangman-game/static/style.css) — Dark theme styling
+[static/script.js](c:/My Programs/claude/hangman-game/static/script.js) — Frontend logic with keyboard support
+Features:
+
+SVG hangman that draws body parts progressively (6 wrong guesses = game over)
+On-screen A–Z keyboard buttons that turn green (correct) or red (wrong) after guessing
+Physical keyboard input supported
+New Game button resets everything
