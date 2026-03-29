@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hangman</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Hangman</h1>
+
+        <div class="game-area">
+            <div class="gallows-section">
+                <svg id="hangman-svg" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Gallows (always visible) -->
+                    <line x1="20" y1="230" x2="180" y2="230" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="60" y1="230" x2="60" y2="20" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="60" y1="20" x2="130" y2="20" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="130" y1="20" x2="130" y2="45" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+                    <!-- Body parts (shown on wrong guesses) -->
+                    <circle id="head" cx="130" cy="60" r="15" stroke="#e74c3c" stroke-width="3" fill="none" class="body-part hidden"/>
+                    <line id="body" x1="130" y1="75" x2="130" y2="140" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                    <line id="left-arm" x1="130" y1="95" x2="100" y2="120" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                    <line id="right-arm" x1="130" y1="95" x2="160" y2="120" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                    <line id="left-leg" x1="130" y1="140" x2="100" y2="175" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                    <line id="right-leg" x1="130" y1="140" x2="160" y2="175" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" class="body-part hidden"/>
+                </svg>
+                <div id="wrong-count" class="wrong-count">0 / 6 wrong</div>
+            </div>
+
+            <div class="word-section">
+                <div id="word-display" class="word-display"></div>
+                <div id="message" class="message hidden"></div>
+                <div id="keyboard" class="keyboard"></div>
+                <button id="new-game-btn" class="new-game-btn">New Game</button>
+            </div>
+        </div>
+
+        <div class="guessed-section">
+            <span class="guessed-label">Guessed:</span>
+            <span id="guessed-letters"></span>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
