@@ -83,7 +83,7 @@ function updateUI(state) {
 }
 
 async function guessLetter(letter) {
-    const state = await fetchJSON("/api/guess", {
+    const state = await fetchJSON("/hangman/api/guess", {
         method: "POST",
         body: JSON.stringify({ letter }),
     });
@@ -91,13 +91,13 @@ async function guessLetter(letter) {
 }
 
 async function newGame() {
-    const state = await fetchJSON("/api/new", { method: "POST" });
+    const state = await fetchJSON("/hangman/api/new", { method: "POST" });
     updateUI(state);
 }
 
 async function init() {
     buildKeyboard();
-    const state = await fetchJSON("/api/state");
+    const state = await fetchJSON("/hangman/api/state");
     updateUI(state);
     document.getElementById("new-game-btn").addEventListener("click", newGame);
 

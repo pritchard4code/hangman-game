@@ -1,4 +1,4 @@
-from flask import Flask, render_template, session, jsonify, request
+from flask import Flask, Blueprint, render_template, session, jsonify, request
 from models import db, Word, Game, Guess
 from datetime import datetime, timezone
 import os
@@ -12,6 +12,8 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
+
+hangman = Blueprint("hangman", __name__, url_prefix="/hangman")
 
 MAX_WRONG = 6
 
@@ -56,12 +58,12 @@ def finish_game(outcome):
             db.session.commit()
 
 
-@app.route("/")
+@hangman.route("/")
 def index():
     return render_template("index.html")
 
 
-@app.route("/api/new", methods=["POST"])
+@hangman.route("/api/new", methods=["POST"])
 def new_game():
     # Close any in-progress game
     state = get_game_state() if "word" in session else None
@@ -82,7 +84,7 @@ def new_game():
     return jsonify(get_game_state())
 
 
-@app.route("/api/state")
+@hangman.route("/api/state")
 def state():
     if "word" not in session:
         word_obj = pick_random_word()
@@ -97,7 +99,7 @@ def state():
     return jsonify(get_game_state())
 
 
-@app.route("/api/guess", methods=["POST"])
+@hangman.route("/api/guess", methods=["POST"])
 def guess():
     data = request.get_json()
     letter = data.get("letter", "").upper()
@@ -142,7 +144,7 @@ def guess():
     return jsonify(new_state)
 
 
-@app.route("/api/stats")
+@hangman.route("/api/stats")
 def stats():
     total = Game.query.count()
     wins = Game.query.filter_by(outcome="win").count()
@@ -160,6 +162,15 @@ def stats():
         "win_rate": round(wins / total * 100, 1) if total else 0,
         "top_words": [{"word": w, "times_used": t} for w, t in top_words],
     })
+
+
+app.register_blueprint(hangman)
+
+
+@app.route("/")
+def root_redirect():
+    from flask import redirect, url_for
+    return redirect(url_for("hangman.index"))
 
 
 if __name__ == "__main__":
